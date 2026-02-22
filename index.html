@@ -2,7 +2,11 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Store Dashboard Portal</title>
+<title>Store Dashboard Portal (Date-wise)</title>
+
+<!-- JS Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
 body{
@@ -56,6 +60,10 @@ button{
   border:none;
   border-radius:5px;
   cursor:pointer;
+  transition:0.3s;
+}
+button:hover{
+  opacity:0.9;
 }
 hr{margin:25px 0;}
 </style>
@@ -65,8 +73,10 @@ hr{margin:25px 0;}
 
 <div class="container">
 
-<h2>Dashboard Portal</h2>
+<h2>Dashboard Portal (Date-wise)</h2>
 
+<!-- Wrap dashboard for HD image -->
+<div id="captureArea">
 <table>
 <thead>
 <tr>
@@ -78,6 +88,11 @@ hr{margin:25px 0;}
 </thead>
 <tbody id="dashboard"></tbody>
 </table>
+</div>
+
+<!-- Download buttons -->
+<button onclick="downloadImage()">Download HD Image</button>
+<button onclick="downloadPDF()" style="margin-left:10px;">Download PDF</button>
 
 <hr>
 
@@ -110,34 +125,40 @@ hr{margin:25px 0;}
 </div>
 
 <script>
-
 const listedStores = ["st1","st2","st4","s4"];
+const today = new Date().toISOString().slice(0,10); // YYYY-MM-DD
 
-let storeData = JSON.parse(localStorage.getItem("storeData")) || {};
+// Load all stored data
+let allData = JSON.parse(localStorage.getItem("storeData")) || {};
+if(!allData[today]){
+  allData[today] = {};
+}
 
+// Submit function
 function submitData(){
   const store = document.getElementById("store").value;
 
-  storeData[store] = {
+  allData[today][store] = {
     work1: document.getElementById("work1").value,
     work2: document.getElementById("work2").value,
     work3: document.getElementById("work3").value
   };
 
-  localStorage.setItem("storeData", JSON.stringify(storeData));
+  localStorage.setItem("storeData", JSON.stringify(allData));
   displayData();
+  alert(`Data saved for ${store} on ${today}`);
 }
 
+// Display dashboard
 function displayData(){
   const dashboard = document.getElementById("dashboard");
-  dashboard.innerHTML="";
+  dashboard.innerHTML = "";
 
-  listedStores.forEach(store=>{
-
-    const data = storeData[store] || {
-      work1:"Pending",
-      work2:"Pending",
-      work3:"Pending"
+  listedStores.forEach(store => {
+    const data = allData[today][store] || {
+      work1: "Pending",
+      work2: "Pending",
+      work3: "Pending"
     };
 
     dashboard.innerHTML += `
@@ -151,8 +172,71 @@ function displayData(){
   });
 }
 
-displayData();
+// HD Image Download
+function downloadImage(){
+  const element = document.getElementById("captureArea");
+  html2canvas(element,{scale:3}).then(canvas=>{
+    const link=document.createElement("a");
+    link.download="dashboard_hd.png";
+    link.href=canvas.toDataURL();
+    link.click();
+  });
+}
 
+// PDF Download
+function downloadPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y = 10;
+  const lineHeight = 7;
+
+  doc.setFontSize(16);
+  doc.text("Dashboard Report",105,y,null,null,"center");
+  y += 15;
+
+  doc.setFontSize(12);
+
+  // Table Header
+  doc.setTextColor(255,255,255);
+  doc.setFillColor(0,123,255);
+  doc.rect(10, y-5, 190, 10, "F");
+  doc.setTextColor(0,0,0);
+  doc.text("Store",15,y);
+  doc.text("Work 1",70,y);
+  doc.text("Work 2",115,y);
+  doc.text("Work 3",160,y);
+  y += 10;
+
+  // Table content
+  listedStores.forEach(store=>{
+    const d = allData[today][store] || {work1:"Pending",work2:"Pending",work3:"Pending"};
+
+    doc.text(store,15,y);
+    // Work1
+    if(d.work1==="Done") doc.setTextColor(0,128,0);
+    else doc.setTextColor(255,0,0);
+    doc.text(d.work1,70,y);
+
+    // Work2
+    if(d.work2==="Done") doc.setTextColor(0,128,0);
+    else doc.setTextColor(255,0,0);
+    doc.text(d.work2,115,y);
+
+    // Work3
+    if(d.work3==="Done") doc.setTextColor(0,128,0);
+    else doc.setTextColor(255,0,0);
+    doc.text(d.work3,160,y);
+
+    doc.setTextColor(0,0,0);
+    y += lineHeight;
+    if(y>280){ doc.addPage(); y=20;}
+  });
+
+  doc.save("dashboard_report.pdf");
+}
+
+// Initial display
+displayData();
 </script>
 
 </body>
